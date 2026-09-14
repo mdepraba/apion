@@ -2,6 +2,31 @@
   "extends": "./tsconfig.base.json",
   "compileOnSave": false,
   "files": [],
-  "references": [],
+  "references": [
+    {
+      "path": "./libs/contracts"
+    },
+    {
+      "path": "./libs/domain"
+    },
+    {
+      "path": "./libs/db"
+    },
+    {
+      "path": "./libs/response-standard"
+    },
+    {
+      "path": "./libs/spec-openapi"
+    },
+    {
+      "path": "./libs/mock-engine"
+    },
+    {
+      "path": "./apps/api"
+    },
+    {
+      "path": "./apps/web"
+    }
+  ],
   "compilerOptions": {}
 }

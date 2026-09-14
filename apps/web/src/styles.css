@@ -1,0 +1,324 @@
+@import "tailwindcss";
+
+/*
+ * Apion design tokens. See DESIGN.md for the direction these implement.
+ *
+ * Dial: ENERGY 1 / RHYTHM 2 / MOTION 1.
+ *
+ * Every foreground/background pair below was verified with the WCAG formula
+ * before being written here: body and muted text clear 4.5:1 in both themes,
+ * control borders and focus rings clear 3:1. Two border tokens exist on
+ * purpose: `--line` separates regions and may sit below 3:1 because nothing
+ * depends on seeing it, while `--line-control` is the only boundary of an
+ * input or button and therefore must clear 3:1.
+ *
+ * The palette lives in `:root` rather than in `@theme` because the light theme
+ * swaps it at runtime from a `data-theme` attribute, and a `@theme` value is
+ * resolved once at build time. `@theme inline` below points Tailwind's
+ * utilities at these variables, so `bg-surface-1` follows the theme the reader
+ * chose instead of freezing the dark value into the stylesheet.
+ */
+
+:root {
+  color-scheme: dark;
+
+  /* Cool slate surfaces, deepest first. */
+  --surface-0: #0f1419;
+  --surface-1: #161d24;
+  --surface-2: #1e262f;
+  --surface-sunken: #0a0e12;
+
+  --text: #e6edf3;
+  --text-muted: #9fb0c0;
+  --text-inverse: #0f1419;
+
+  --line: #29323c;
+  --line-control: #6b7b8a;
+
+  /* The single accent. Attention and unsaved state, nothing else. */
+  --accent: #f0b429;
+  --accent-text: #0f1419;
+  --accent-quiet: #f0b4291f;
+
+  /* HTTP methods: readable at a glance without reading the word. */
+  --method-get: #4db8a8;
+  --method-post: #7aa2f7;
+  --method-put: #c99bf0;
+  --method-patch: #e0a458;
+  --method-delete: #f07d7d;
+  --method-other: #9fb0c0;
+
+  /* Implementation status (FR-3.1). */
+  --status-draft: #8b9bab;
+  --status-in-review: #7aa2f7;
+  --status-approved: #c99bf0;
+  --status-in-progress: #e0a458;
+  --status-implemented: #4db8a8;
+  --status-deprecated: #9fb0c0;
+  --status-retired: #6b7b8a;
+  --status-danger: #f07d7d;
+
+  --shadow-overlay: 0 12px 32px #00000073;
+
+  --row-height: 30px;
+  --header-height: 48px;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --surface-0: #fbfcfd;
+  --surface-1: #f2f5f8;
+  --surface-2: #e6ebf0;
+  --surface-sunken: #eaeff4;
+
+  --text: #16202b;
+  --text-muted: #54636f;
+  --text-inverse: #ffffff;
+
+  --line: #d5dde4;
+  --line-control: #767f88;
+
+  --accent: #8a5a00;
+  --accent-text: #ffffff;
+  --accent-quiet: #8a5a0014;
+
+  --method-get: #0f6f62;
+  --method-post: #2b5fc4;
+  --method-put: #7538ab;
+  --method-patch: #8a5a00;
+  --method-delete: #b3261e;
+  --method-other: #54636f;
+
+  --status-draft: #5b6b78;
+  --status-in-review: #2b5fc4;
+  --status-approved: #7538ab;
+  --status-in-progress: #8a5a00;
+  --status-implemented: #0f6f62;
+  --status-deprecated: #54636f;
+  --status-retired: #767f88;
+  --status-danger: #b3261e;
+
+  --shadow-overlay: 0 12px 32px #16202b26;
+}
+
+/*
+ * The design system as Tailwind utilities. `inline` keeps the generated CSS
+ * pointing at the variables above rather than copying their values, which is
+ * what lets one class work in both themes.
+ */
+@theme inline {
+  --color-surface-0: var(--surface-0);
+  --color-surface-1: var(--surface-1);
+  --color-surface-2: var(--surface-2);
+  --color-surface-sunken: var(--surface-sunken);
+
+  --color-text: var(--text);
+  --color-text-muted: var(--text-muted);
+  --color-text-inverse: var(--text-inverse);
+
+  --color-line: var(--line);
+  --color-line-control: var(--line-control);
+
+  --color-accent: var(--accent);
+  --color-accent-text: var(--accent-text);
+  --color-accent-quiet: var(--accent-quiet);
+
+  --color-method-get: var(--method-get);
+  --color-method-post: var(--method-post);
+  --color-method-put: var(--method-put);
+  --color-method-patch: var(--method-patch);
+  --color-method-delete: var(--method-delete);
+  --color-method-other: var(--method-other);
+
+  --color-status-draft: var(--status-draft);
+  --color-status-in-review: var(--status-in-review);
+  --color-status-approved: var(--status-approved);
+  --color-status-in-progress: var(--status-in-progress);
+  --color-status-implemented: var(--status-implemented);
+  --color-status-deprecated: var(--status-deprecated);
+  --color-status-retired: var(--status-retired);
+  --color-status-danger: var(--status-danger);
+
+  /* Typography. Humanist sans for prose, mono where content is literal. */
+  --font-sans:
+    "Inter var", "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --font-mono:
+    "JetBrains Mono", "SFMono-Regular", "Cascadia Mono", Consolas, monospace;
+
+  /*
+   * Smaller than Tailwind's defaults throughout. Density is the point: this is
+   * read for hours, and `text-base` here is 14px rather than 16px.
+   */
+  --text-xs: 0.75rem;
+  --text-sm: 0.8125rem;
+  --text-base: 0.875rem;
+  --text-md: 1rem;
+  --text-lg: 1.25rem;
+  --text-xl: 1.625rem;
+
+  /* A 4px scale, so `p-3` is 0.75rem exactly as the old `--space-3` was. */
+  --spacing: 0.25rem;
+
+  /* Three radii, used to separate control from container from tag. */
+  --radius-sm: 3px;
+  --radius-md: 6px;
+  --radius-pill: 999px;
+
+  --shadow-overlay: var(--shadow-overlay);
+
+  /* The two fixed measurements the layout is built on. */
+  --spacing-row: 30px;
+  --spacing-header: 48px;
+}
+
+/*
+ * Tailwind's preflight already resets the box model and margins. What stays
+ * here is what preflight deliberately leaves alone: the page's own typography,
+ * the height chain the app layout depends on, and the focus ring.
+ */
+@layer base {
+  html,
+  body,
+  #root {
+    height: 100%;
+  }
+
+  body {
+    background: var(--surface-0);
+    color: var(--text);
+    font-family: var(--font-sans);
+    font-size: var(--text-base);
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4 {
+    font-weight: 600;
+    line-height: 1.25;
+  }
+
+  h1 {
+    font-size: var(--text-xl);
+  }
+  h2 {
+    font-size: var(--text-lg);
+  }
+  h3 {
+    font-size: var(--text-md);
+  }
+
+  code,
+  pre,
+  kbd {
+    font-family: var(--font-mono);
+    font-size: 0.9em;
+  }
+
+  /*
+   * One focus style for the whole app. R-32: never removed, always visible, and
+   * the ring clears 3:1 against every surface it can appear on. `:focus-visible`
+   * rather than `:focus` so a mouse click does not leave a ring behind.
+   */
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* MOTION 1: transitions confirm a state the user caused. Nothing loops. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
+}
+
+/*
+ * The semantic colour maps.
+ *
+ * These stay as CSS because the value is chosen by a data attribute the server
+ * supplies: an HTTP method or an implementation status. Expressing that as
+ * utilities would mean a lookup object of class names in every component that
+ * renders one, which puts the palette somewhere DESIGN.md cannot see it.
+ * Neither ever carries meaning by colour alone; the label is always present.
+ */
+@layer components {
+  [data-method="get"] {
+    color: var(--method-get);
+  }
+  [data-method="post"] {
+    color: var(--method-post);
+  }
+  [data-method="put"] {
+    color: var(--method-put);
+  }
+  [data-method="patch"] {
+    color: var(--method-patch);
+  }
+  [data-method="delete"] {
+    color: var(--method-delete);
+  }
+  [data-method="head"],
+  [data-method="options"] {
+    color: var(--method-other);
+  }
+
+  [data-status="draft"] {
+    color: var(--status-draft);
+  }
+  [data-status="in_review"] {
+    color: var(--status-in-review);
+  }
+  [data-status="approved"] {
+    color: var(--status-approved);
+  }
+  [data-status="in_progress"] {
+    color: var(--status-in-progress);
+  }
+  [data-status="implemented"] {
+    color: var(--status-implemented);
+  }
+  [data-status="deprecated"] {
+    color: var(--status-deprecated);
+  }
+  [data-status="retired"] {
+    color: var(--status-retired);
+  }
+
+  /*
+    Severity colours the violation row's whole text, and its left edge takes
+    `currentColor` from it, so one declaration drives both signals.
+  */
+  [data-severity="warn"] {
+    color: var(--status-in-progress);
+  }
+}
+
+@utility skip-link {
+  /*
+   * Off-screen until focused, rather than hidden: a hidden element cannot be
+   * tabbed to, which is the whole job of this control.
+   */
+  position: absolute;
+  top: --spacing(2);
+  left: --spacing(2);
+  z-index: 100;
+  padding: --spacing(2) --spacing(3);
+  background: var(--surface-2);
+  color: var(--text);
+  border: 1px solid var(--line-control);
+  border-radius: var(--radius-md);
+  transform: translateY(-200%);
+
+  &:focus {
+    transform: translateY(0);
+  }
+}

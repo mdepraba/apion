@@ -1,0 +1,155 @@
+{
+  "version": 1,
+  "skills": {
+    "clean-code": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "clean-code/SKILL.md",
+      "computedHash": "afe2fb43f2ecedb3d8599391f03927b54adebe7c245b667206c44251fb1ed3e3"
+    },
+    "documentation": {
+      "source": "mcollina/skills",
+      "sourceType": "github",
+      "skillPath": "skills/documentation/SKILL.md",
+      "computedHash": "6172f1d7044245f3b6d81df45b5b3913ab2f5e43b06121d6224d573ce0aa5158"
+    },
+    "drizzle-orm": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "drizzle-orm/SKILL.md",
+      "computedHash": "9d5a53ffff9a69b164d9729347a0c4a90c76248a8f25da3a6c7df47a69ac6f0f"
+    },
+    "fastify-best-practices": {
+      "source": "mcollina/skills",
+      "sourceType": "github",
+      "skillPath": "skills/fastify/SKILL.md",
+      "computedHash": "980cf47d3f104df8be0a2767ccc604e4fa1b94db4405589594dd9f5029b40d25"
+    },
+    "nestjs-architecture-principles": {
+      "source": "amirtaherkhani/nestjs-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-architecture-principles/SKILL.md",
+      "computedHash": "a631daaf47a5224200452bb968d3f78a357e02708f9f009e53f9b6b26a6b7b10"
+    },
+    "nestjs-code-audit": {
+      "source": "amirtaherkhani/nestjs-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-code-audit/SKILL.md",
+      "computedHash": "010712e2790ed82908600aded0a1b1f98a3c09c503221e03b8f97d7dbbfd5d4f"
+    },
+    "nestjs-feature-audit": {
+      "source": "amirtaherkhani/nestjs-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-feature-audit/SKILL.md",
+      "computedHash": "dc5583da111402855900fca541eba9adef0b8dad6a95086e74e72a25cba0a392"
+    },
+    "nestjs-features-performance": {
+      "source": "amirtaherkhani/nestjs-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-features-performance/SKILL.md",
+      "computedHash": "d8ca8200396a7574ac05313b516bd3e9ec77a9e0b06a57bad0602456c6247f39"
+    },
+    "nestjs-oop-design-patterns": {
+      "source": "amirtaherkhani/nestjs-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-oop-design-patterns/SKILL.md",
+      "computedHash": "0a56429713dc60af989ac51a2c9a391c40e8a7dfa4c7d4c2f6122ec5bcae88ee"
+    },
+    "nestjs-professional-software-engineering": {
+      "source": "amirtaherkhani/nestjs-agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/nestjs-professional-software-engineering/SKILL.md",
+      "computedHash": "d861094e63871a3e3066684322aa7ace6a8d07b733592744c29bab5d838d5d2d"
+    },
+    "oauth": {
+      "source": "mcollina/skills",
+      "sourceType": "github",
+      "skillPath": "skills/oauth/SKILL.md",
+      "computedHash": "0911bf3d2d4fd8d6ef567b91f60a34e34bfd7887f506f4a4c37a198ee0020865"
+    },
+    "octocat": {
+      "source": "mcollina/skills",
+      "sourceType": "github",
+      "skillPath": "skills/octocat/SKILL.md",
+      "computedHash": "9f602e12ff8e85084f3e0e4071977cf03cabaa2eb5987259630a5f03ab916654"
+    },
+    "tailwindcss": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "tailwindcss/SKILL.md",
+      "computedHash": "1715717d38abba1c4b11f2e95a94681cdb1dddbcb28379637b591a16b50bcd4d"
+    },
+    "tanstack-query": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "tanstack-query/SKILL.md",
+      "computedHash": "16c4676ff8fec29ba6adb414a0940aee9b2a7f5ea580918c8c2b9785621d2a50"
+    },
+    "tanstack-router": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "tanstack-router/SKILL.md",
+      "computedHash": "deebfa092b412e98fbb28e71eb7713956c71a050b09a7bc7e5927f65238a2495"
+    },
+    "tanstack-start": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "tanstack-start/SKILL.md",
+      "computedHash": "af6cc89078622656fd2e236c2d5b9ec7a9c2364c2e2c09e11c4bf7fa093df8e5"
+    },
+    "typescript-magician": {
+      "source": "mcollina/skills",
+      "sourceType": "github",
+      "skillPath": "skills/typescript-magician/SKILL.md",
+      "computedHash": "f6374b47974b828435aabb03dcf474ac328c1439fb4afcb216e274435fc4bba7"
+    },
+    "ui-design": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "ui-design/SKILL.md",
+      "computedHash": "fc91564ee27ff8d3af2765a3b7588c033caa06cfb188d429c47238b6c645c003"
+    },
+    "ux-design": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "ux-design/SKILL.md",
+      "computedHash": "767fc1c09bca0fdeed1c096846b732cd5b70643001aef17d221a87e0ab146657"
+    },
+    "vercel-composition-patterns": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/composition-patterns/SKILL.md",
+      "computedHash": "10eb4ec94577b79ae98c63ce3e7f35f8a6a06436a4011bff083b397de6960eeb"
+    },
+    "vercel-optimize": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/vercel-optimize/SKILL.md",
+      "computedHash": "fb87d3a135fef30748f772200a9f161f780b5a16830e8e70a3a126195cb16963"
+    },
+    "vercel-react-best-practices": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/react-best-practices/SKILL.md",
+      "computedHash": "6b526d013e28073246a36f99b529bc43745d30832ecfa8217b359c34f260ca6b"
+    },
+    "web-design-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/web-design-guidelines/SKILL.md",
+      "computedHash": "d8e7d3afe37dcc8a97b99ffb5afdb4d0919ae0092ea8b68f44eb201f035e33ac"
+    },
+    "writing-guidelines": {
+      "source": "vercel-labs/agent-skills",
+      "sourceType": "github",
+      "skillPath": "skills/writing-guidelines/SKILL.md",
+      "computedHash": "9c221f46dca7bdf94af9c27ce54a7b4ea323c590333f8bc0a55c65254c646584"
+    },
+    "zod-schema-validation": {
+      "source": "mindrally/skills",
+      "sourceType": "github",
+      "skillPath": "zod-schema-validation/SKILL.md",
+      "computedHash": "1fe64a913897075c7ac9e57980170b00b787c0ea14f857c1fbda2cf85406affd"
+    }
+  }
+}

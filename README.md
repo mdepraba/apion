@@ -1,109 +1,84 @@
-# New Nx Repository
+# Apion
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+Teams agree an HTTP API contract here before anyone writes the handler. A
+project owns a versioned contract, a response standard, per-environment
+implementation status, and a mock derived from the contract itself.
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is ready ✨.
+The product specification lives in [docs/prd/](docs/prd/). Read
+[00-product-overview.md](docs/prd/00-product-overview.md) first;
+[07-platform-architecture-and-operations.md](docs/prd/07-platform-architecture-and-operations.md)
+is a constraint document, not a suggestion.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/docs/technologies/typescript/introduction?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+## What is built
 
-🚀 If you haven't connected to Nx Cloud yet, [complete your setup here](https://cloud.nx.app/get-started). Get faster builds with remote caching, distributed task execution, and self-healing CI. [See how your workspace can benefit](#nx-cloud).
+PRD Phase 0 and Phase 1. Authentication, organisations and projects, roles and
+server-side permission checks, contract versions, resources, endpoints and
+schemas, per-environment status with history and a CI status API, optimistic
+concurrency on every structural write, OpenAPI 3.1 import and export,
+TypeScript client generation, cross-project search, and the SPA that drives all
+of it.
 
-## Generate a library
+Phases 2 to 6 are not built. Their library seams exist so Phase 1 could not
+establish a conflicting model: `libs/response-standard` holds the envelope
+engine that PRD 03 FR-4.8 requires every feature to share, and
+`libs/mock-engine` holds the route matcher whose precedence PRD 05 specifies.
 
-```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
-```
+## Running it
 
-## Run tasks
-
-To build the library use:
-
-```sh
-npx nx run pkg1:build
-```
-
-To run any task with Nx use:
-
-```sh
-npx nx run <project-name>:<target>
-```
-
-These targets are either [inferred automatically](https://nx.dev/docs/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
-
-[More about running tasks in the docs &raquo;](https://nx.dev/docs/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Versioning and releasing
-
-To version and release the library use
-
-```
-npx nx release
-```
-
-Pass `--dry-run` to see what would happen without actually releasing the library.
-
-[Learn more about Nx release &raquo;](https://nx.dev/docs/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Keep TypeScript project references up to date
-
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
-
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
+Requires Node 24, pnpm, and Docker.
 
 ```sh
-npx nx sync
+pnpm install
+cp .env.example .env          # the defaults match docker-compose.yml
+docker compose up -d postgres
+pnpm db:migrate
+pnpm db:seed                  # two projects, three people, realistic contract
+
+pnpm dev:api                  # http://localhost:3000
+pnpm dev:web                  # http://localhost:4200, proxies /api to the API
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+The seed prints its sign-in details. All three accounts share one password and
+hold different roles, so the permission behaviour is visible without editing
+anything: `ada@` owns both projects, `rin@` is an editor, `sam@` is a commenter
+and every contract field is read-only for them.
+
+## Layout
+
+| Path | Holds |
+| --- | --- |
+| `apps/api` | NestJS on Fastify. Server composition, HTTP, guards, jobs. |
+| `apps/web` | The SPA: TanStack Router and Query, and its design system. |
+| `libs/contracts` | Zod schemas and types shared by both apps. Imports no other library. |
+| `libs/domain` | Business rules with no framework: permissions, status transitions, diffing, `applyEndpointChange`. |
+| `libs/db` | Drizzle schema, migrations, the pooled client, and the dev seed. |
+| `libs/response-standard` | The envelope and lint engine seam (PRD 03). |
+| `libs/spec-openapi` | OpenAPI 3.1 import and export, TypeScript generation. |
+| `libs/mock-engine` | Contract-derived mock route matching (PRD 05). |
+
+PRD 07 fixes the dependency direction: applications may import libraries, no
+library imports an application, `domain` stays framework-free, and `contracts`
+imports no other library. `pnpm boundaries` enforces all four against the real
+Nx project graph, and CI runs it.
+
+## Verifying
 
 ```sh
-npx nx sync:check
+pnpm nx run-many -t check       # Biome lint and format
+pnpm nx run-many -t typecheck
+pnpm nx run-many -t test
+pnpm nx run-many -t build
+pnpm boundaries
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+Rules disabled in `biome.json` are each explained in
+[docs/lint-decisions.md](docs/lint-decisions.md). One of them is load-bearing:
+Biome rewriting a NestJS dependency to `import type` erases the runtime token
+and takes the API down at startup, so that rule is off for `apps/api`.
 
-## Nx Cloud
+## Design
 
-Nx Cloud ensures a [fast and scalable CI](https://nx.dev/nx-cloud?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) pipeline. It includes features such as:
-
-- [Remote caching](https://nx.dev/docs/features/ci-features/remote-cache?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task distribution across multiple machines](https://nx.dev/docs/features/ci-features/distribute-task-execution?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Automated e2e test splitting](https://nx.dev/docs/features/ci-features/split-e2e-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Task flakiness detection and rerunning](https://nx.dev/docs/features/ci-features/flaky-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-### Set up CI (non-Github Actions CI)
-
-**Note:** This is only required if your CI provider is not GitHub Actions.
-
-Use the following command to configure a CI workflow for your workspace:
-
-```sh
-npx nx g ci-workflow
-```
-
-[Learn more about Nx on CI](https://nx.dev/docs/features/ci-features?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Install Nx Console
-
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
-
-[Install Nx Console &raquo;](https://nx.dev/docs/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## 🔗 Learn More
-
-- [Nx Documentation](https://nx.dev/docs)
-- [Crafting Your Workspace Tutorial](https://nx.dev/docs/getting-started/tutorials/crafting-your-workspace)
-- [Module Boundaries](https://nx.dev/docs/features/enforce-module-boundaries)
-- [Releasing Packages](https://nx.dev/docs/features/manage-releases)
-- [Nx Plugins](https://nx.dev/docs/concepts/nx-plugins)
-- [Nx Cloud](https://nx.dev/nx-cloud)
-
-## 💬 Community
-
-Join the Nx community:
-
-- [Discord](https://go.nx.dev/community)
-- [X (Twitter)](https://twitter.com/nxdevtools)
-- [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [YouTube](https://www.youtube.com/@nxdevtools)
-- [Blog](https://nx.dev/blog)
+[DESIGN.md](DESIGN.md) is the product owner's direction and the source of the
+SPA's identity. Every colour pair in `apps/web/src/styles.css` was checked
+against WCAG 2.2 AA before it was written down, and both themes are treated as
+shipping surfaces.

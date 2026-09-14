@@ -1,0 +1,47 @@
+# Development stack (PRD 07, "Database, deployment and monitoring").
+# Production uses docker-compose.prod.yml, which applies the memory limits.
+
+services:
+  postgres:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: apion
+      POSTGRES_PASSWORD: apion
+      POSTGRES_DB: apion
+    ports:
+      - '5432:5432'
+    volumes:
+      # Postgres 18 keeps its data in a major-version subdirectory, so the mount
+      # goes one level above where earlier images wanted it. Mounting
+      # /var/lib/postgresql/data here makes the container refuse to start.
+      - postgres-data:/var/lib/postgresql
+    # PRD 07 makes these mandatory safety controls, not tuning preferences: the
+    # host has 1 GB and Postgres is budgeted about 200 MB of it.
+    command: >
+      postgres
+      -c shared_buffers=160MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=32MB
+      -c max_connections=20
+      -c max_parallel_workers=0
+      -c max_parallel_workers_per_gather=0
+      -c jit=off
+      -c statement_timeout=15000
+      -c idle_in_transaction_session_timeout=30000
+      -c autovacuum_max_workers=1
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U apion -d apion']
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Catches outbound mail in development so mention notifications (PRD 06
+  # FR-5.4) can be seen without sending anything.
+  mailpit:
+    image: axllent/mailpit:latest
+    ports:
+      - '8025:8025'
+      - '1025:1025'
+
+volumes:
+  postgres-data:

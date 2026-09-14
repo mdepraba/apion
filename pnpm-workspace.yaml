@@ -1,2 +1,11 @@
 packages:
-  - 'packages/*'
+  - "packages/*"
+  - "libs/*"
+  - "apps/*"
+allowBuilds:
+  "@parcel/watcher": true
+  unrs-resolver: true
+  argon2: true
+  esbuild: true
+  "@nestjs/core": false
+  "@scarf/scarf": false

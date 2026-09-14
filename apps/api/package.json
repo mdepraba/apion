@@ -1,0 +1,149 @@
+{
+  "name": "@apion/api",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "targets": {
+      "prune-lockfile": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "executor": "@nx/js:prune-lockfile",
+        "inputs": [
+          "default",
+          "^default",
+          "{workspaceRoot}/pnpm-workspace.yaml",
+          "{workspaceRoot}/package.json",
+          {
+            "runtime": "node -e \"try{console.log('pnpm major '+require('child_process').execSync('pnpm --version',{stdio:['ignore','pipe','ignore']}).toString().trim().split('.')[0])}catch{console.log('pnpm major unavailable')}\""
+          }
+        ],
+        "outputs": [
+          "{workspaceRoot}/apps/api/dist/package.json",
+          "{workspaceRoot}/apps/api/dist/pnpm-lock.yaml",
+          "{workspaceRoot}/apps/api/dist/pnpm-workspace.yaml",
+          "{workspaceRoot}/apps/api/dist/patches",
+          "{workspaceRoot}/apps/api/dist/local_path_modules"
+        ],
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "copy-workspace-modules": {
+        "dependsOn": [
+          "build"
+        ],
+        "cache": true,
+        "outputs": [
+          "{workspaceRoot}/apps/api/dist/workspace_modules"
+        ],
+        "executor": "@nx/js:copy-workspace-modules",
+        "options": {
+          "buildTarget": "build"
+        }
+      },
+      "prune": {
+        "dependsOn": [
+          "prune-lockfile",
+          "copy-workspace-modules"
+        ],
+        "executor": "nx:noop"
+      },
+      "serve": {
+        "continuous": true,
+        "executor": "@nx/js:node",
+        "defaultConfiguration": "development",
+        "dependsOn": [
+          "build"
+        ],
+        "options": {
+          "buildTarget": "@apion/api:build",
+          "runBuildTargetDependencies": false
+        },
+        "configurations": {
+          "development": {
+            "buildTarget": "@apion/api:build:development"
+          },
+          "production": {
+            "buildTarget": "@apion/api:build:production"
+          }
+        }
+      },
+      "build": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "cache": true,
+        "dependsOn": [
+          "^build"
+        ],
+        "options": {
+          "platform": "node",
+          "format": [
+            "esm"
+          ],
+          "outputPath": "apps/api/dist",
+          "main": "apps/api/src/main.ts",
+          "tsConfig": "apps/api/tsconfig.app.json",
+          "assets": [],
+          "bundle": true,
+          "thirdParty": false,
+          "esbuildConfig": "apps/api/esbuild.config.cjs"
+        },
+        "configurations": {
+          "development": {
+            "minify": false
+          },
+          "production": {
+            "minify": true
+          }
+        }
+      },
+      "seed": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "platform": "node",
+          "format": [
+            "esm"
+          ],
+          "outputPath": "apps/api/dist-seed",
+          "main": "apps/api/src/cli/seed.ts",
+          "tsConfig": "apps/api/tsconfig.app.json",
+          "bundle": true,
+          "thirdParty": false,
+          "assets": [],
+          "esbuildConfig": "apps/api/esbuild.config.cjs"
+        }
+      }
+    },
+    "tags": [
+      "type:app",
+      "scope:api"
+    ]
+  },
+  "dependencies": {
+    "@apion/contracts": "workspace:*",
+    "@apion/db": "workspace:*",
+    "@apion/domain": "workspace:*",
+    "@apion/mock-engine": "workspace:*",
+    "@apion/response-standard": "workspace:*",
+    "@apion/spec-openapi": "workspace:*",
+    "@nestjs/common": "^11.0.0",
+    "@nestjs/core": "^11.0.0",
+    "@nestjs/platform-express": "^11.0.0",
+    "drizzle-orm": "^0.45.2",
+    "reflect-metadata": "^0.2.0",
+    "rxjs": "^7.8.0",
+    "tslib": "^2.3.0",
+    "zod": "^4.6.2"
+  },
+  "devDependencies": {
+    "@nestjs/testing": "^11.0.0"
+  },
+  "type": "module"
+}
