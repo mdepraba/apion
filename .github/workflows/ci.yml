@@ -146,6 +146,15 @@ jobs:
           printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
           chmod 600 ~/.ssh/id_deploy
 
+          cat > ~/.ssh/config <<EOF
+          Host ${{ secrets.VPS_HOST }}
+            Port ${{ vars.VPS_SSH_PORT || '22' }}
+            IdentityFile ~/.ssh/id_deploy
+            IdentitiesOnly yes
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+
       # The host runs the compose file from the commit being deployed, so the
       # two can never drift.
       - name: Send the compose file
