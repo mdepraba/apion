@@ -10,10 +10,11 @@
       "**",
       "!**/dist",
       "!**/dist-seed",
+      "!**/dist-migrate",
       "!**/coverage",
       "!**/.nx",
       "!**/node_modules",
-      "!**/pnpm-lock.yaml",
+      "!**/bun.lock",
       "!**/routeTree.gen.ts",
       "!**/migrations/**"
     ]

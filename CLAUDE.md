@@ -19,33 +19,33 @@ PRD Phases 0 and 1 are built. Phases 2–6 are not; `libs/response-standard` and
 ## Commands
 
 ```sh
-pnpm install
+bun install
 cp .env.example .env            # defaults match docker-compose.yml
 docker compose up -d postgres
-pnpm db:migrate
-pnpm db:seed                    # two projects, three people; prints sign-in details
+bun run db:migrate
+bun run db:seed                 # two projects, three people; prints sign-in details
 
-pnpm dev:api                    # http://localhost:3000
-pnpm dev:web                    # http://localhost:4200, proxies /api to the API
+bun run dev:api                 # http://localhost:3000
+bun run dev:web                 # http://localhost:4200, proxies /api to the API
 ```
 
 Verification, in the order CI runs it:
 
 ```sh
-pnpm nx sync:check              # route tree + TS project references are generated
-pnpm boundaries                 # module boundary rules, against the real Nx graph
-pnpm nx run-many -t check       # Biome lint and format
-pnpm nx run-many -t typecheck
-pnpm nx run-many -t test
-pnpm nx run-many -t build
+bunx nx sync:check              # route tree + TS project references are generated
+bun run boundaries              # module boundary rules, against the real Nx graph
+bunx nx run-many -t check       # Biome lint and format
+bunx nx run-many -t typecheck
+bunx nx run-many -t test
+bunx nx run-many -t build
 ```
 
-Scoped work: `pnpm nx run @apion/api:test`, `pnpm nx affected -t test`. A single test file goes
-through Vitest's own filter: `pnpm nx run @apion/domain:test -- diff.spec`. Every project has its
+Scoped work: `bunx nx run @apion/api:test`, `bunx nx affected -t test`. A single test file goes
+through Vitest's own filter: `bunx nx run @apion/domain:test -- diff.spec`. Every project has its
 own `vitest.config.mts` with `watch: false`, so a run terminates.
 
-Schema changes: edit `libs/db/src/lib/schema/*.ts`, then `pnpm db:generate` (writes a migration
-into `libs/db/migrations/`), then `pnpm db:migrate`. Migrations are never hand-edited and are
+Schema changes: edit `libs/db/src/lib/schema/*.ts`, then `bun run db:generate` (writes a migration
+into `libs/db/migrations/`), then `bun run db:migrate`. Migrations are never hand-edited and are
 excluded from Biome.
 
 ## Architecture
@@ -68,7 +68,7 @@ checker keys off — a new project without them is silently unchecked.
 | `libs/spec-openapi` | OpenAPI 3.1 import and export, TypeScript generation. |
 | `libs/mock-engine` | Contract-derived mock route matching (PRD 05). |
 
-There are no `project.json` files. Projects are pnpm workspace packages; Nx infers targets from
+There are no `project.json` files. Projects are bun workspace packages (`workspaces` in the root `package.json`); Nx infers targets from
 plugins in `nx.json`, and per-project target overrides live under the `nx` key in `package.json`.
 
 **The API is a modular monolith.** One process — no separate worker, mock service, or
@@ -95,6 +95,21 @@ is fixed by PRD 05 FR-6.1, so `MockController` binds to the Fastify instance dir
 `main.ts` after `app.init()` rather than living under the prefix. Project response standards
 (PRD 03) govern how a *project's* API answers and have no bearing on the control plane's own
 envelope — don't conflate the two.
+
+**Deployment is pull-only.** `Dockerfile` builds the image in CI and
+`docker-compose.prod.yml` runs Postgres, a one-shot `migrate` container and the API on one
+VPS; the `publish`/`deploy` jobs in `.github/workflows/ci.yml` push to GHCR and the host only
+pulls and restarts, because PRD 08 lists host builds exhausting memory as a risk. Migrations go
+through `apps/api/src/cli/migrate.ts` (drizzle-orm's migrator, not drizzle-kit, which is a dev
+dependency) and the API starts only if they succeed.
+
+**The API serves the SPA.** PRD 07 puts both in one process. `@fastify/static` is registered
+with `wildcard: false` so it globs `WEB_DIST_PATH` at startup and each hashed asset gets its
+own route; `main.ts` then answers unmatched GETs with `index.html`. Requests under `/api/v1`,
+`/mock`, `/__mock`, `/health` and `/metrics` are excluded and go through
+`reply.callNotFound()` instead, which hands them to the handler Nest registered so the control
+plane's 404 still leaves through `ApiExceptionFilter`. `WEB_DIST_PATH` is empty in
+development, where Vite serves the SPA.
 
 The SPA's `apps/web/src/api/client.ts` is the only place the session token is read or written, and
 the only place `If-Match`/`RequestError` semantics live. Route files under `src/routes/` are
@@ -134,7 +149,7 @@ silently either way.
 
 - For navigating/exploring the workspace, invoke the `nx-workspace` skill first - it has patterns for querying projects, targets, and dependencies
 - When running tasks (for example build, lint, test, e2e, etc.), always prefer running the task through `nx` (i.e. `nx run`, `nx run-many`, `nx affected`) instead of using the underlying tooling directly
-- Prefix nx commands with the workspace's package manager (e.g., `pnpm nx build`, `npm exec nx test`) - avoids using globally installed CLI
+- Prefix nx commands with the workspace's package manager (e.g., `bunx nx build`, `npm exec nx test`) - avoids using globally installed CLI
 - You have access to the Nx MCP server and its tools, use them to help the user
 - For Nx plugin best practices, check `node_modules/@nx/<plugin>/PLUGIN.md`. Not all plugins have this file - proceed without it if unavailable.
 - NEVER guess CLI flags - always check nx_docs or `--help` first when unsure

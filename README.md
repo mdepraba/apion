@@ -25,17 +25,18 @@ engine that PRD 03 FR-4.8 requires every feature to share, and
 
 ## Running it
 
-Requires Node 24, pnpm, and Docker.
+Requires Bun 1.3 or newer and Docker. Node 24 must also be on PATH: Nx,
+esbuild and Vitest spawn it for their own work even though the API runs on Bun.
 
 ```sh
-pnpm install
+bun install
 cp .env.example .env          # the defaults match docker-compose.yml
 docker compose up -d postgres
-pnpm db:migrate
-pnpm db:seed                  # two projects, three people, realistic contract
+bun run db:migrate
+bun run db:seed               # two projects, three people, realistic contract
 
-pnpm dev:api                  # http://localhost:3000
-pnpm dev:web                  # http://localhost:4200, proxies /api to the API
+bun run dev:api               # http://localhost:3000
+bun run dev:web               # http://localhost:4200, proxies /api to the API
 ```
 
 The seed prints its sign-in details. All three accounts share one password and
@@ -58,23 +59,52 @@ and every contract field is read-only for them.
 
 PRD 07 fixes the dependency direction: applications may import libraries, no
 library imports an application, `domain` stays framework-free, and `contracts`
-imports no other library. `pnpm boundaries` enforces all four against the real
+imports no other library. `bun run boundaries` enforces all four against the real
 Nx project graph, and CI runs it.
 
 ## Verifying
 
 ```sh
-pnpm nx run-many -t check       # Biome lint and format
-pnpm nx run-many -t typecheck
-pnpm nx run-many -t test
-pnpm nx run-many -t build
-pnpm boundaries
+bunx nx run-many -t check       # Biome lint and format
+bunx nx run-many -t typecheck
+bunx nx run-many -t test
+bunx nx run-many -t build
+bun run boundaries
 ```
 
 Rules disabled in `biome.json` are each explained in
 [docs/lint-decisions.md](docs/lint-decisions.md). One of them is load-bearing:
 Biome rewriting a NestJS dependency to `import type` erases the runtime token
 and takes the API down at startup, so that rule is off for `apps/api`.
+
+## Deploying
+
+One VPS, one Docker image, no build on the host. PRD 08 lists host builds
+exhausting memory as a risk, so `.github/workflows/ci.yml` builds the image,
+pushes it to GHCR, and the VPS only pulls and restarts.
+
+A push to `main` runs `verify`; if it passes, `publish` builds the image and
+tags it with the commit SHA and `main`; `deploy` copies
+`docker-compose.prod.yml` to the host, pulls that tag, runs migrations as a
+one-shot container, starts the API only if they succeed, and fails the job if
+`/health` does not report healthy within two minutes.
+
+The host needs Docker with the Compose plugin, a directory (`/srv/apion` by
+default) and a `.env` in it. The keys are listed at the bottom of
+[.env.example](.env.example); `POSTGRES_PASSWORD` and a real `JWT_SECRET` are
+required. Nothing else on the host is managed by the pipeline.
+
+Repository secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (a private key whose
+public half is in the deploy user's `authorized_keys`) and `VPS_SSH_KNOWN_HOSTS`
+(`ssh-keyscan your-host`). Optional variable: `VPS_APP_DIR`. The `production`
+environment exists so a required reviewer can gate the deploy without editing
+the workflow.
+
+The API is published on `127.0.0.1:3000`, not on a public interface. Terminate
+TLS with a reverse proxy on the host.
+
+To roll back, set `APION_IMAGE` in the host's `.env` to an earlier commit's tag
+and run `docker compose -f docker-compose.prod.yml up -d`.
 
 ## Design
 

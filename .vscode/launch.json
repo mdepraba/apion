@@ -2,29 +2,19 @@
   "version": "0.2.0",
   "configurations": [
     {
-      "type": "node",
+      // Bun speaks the WebKit inspector protocol, not V8, so VS Code's built-in
+      // node debugger cannot attach: this needs the oven.bun-vscode extension.
+      // Build first (`bunx nx run @apion/api:build:development`); this launches
+      // the bundle rather than nx serve, which spawns its own bun process.
+      "type": "bun",
       "request": "launch",
-      "name": "Debug @apion/api with Nx",
-      "runtimeExecutable": "pnpm",
-      "runtimeArgs": [
-        "exec",
-        "nx",
-        "serve",
-        "@apion/api"
-      ],
-      "env": {
-        "NODE_OPTIONS": "--inspect=9229"
-      },
-      "console": "integratedTerminal",
-      "internalConsoleOptions": "neverOpen",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
-      "sourceMaps": true,
-      "outFiles": [
-        "${workspaceFolder}/apps/api/dist/**/*.(m|c|)js",
-        "!**/node_modules/**"
-      ]
+      "name": "Debug @apion/api",
+      "program": "${workspaceFolder}/apps/api/dist/main.js",
+      "cwd": "${workspaceFolder}",
+      "runtime": "bun",
+      "runtimeArgs": ["--smol"],
+      "watchMode": false,
+      "internalConsoleOptions": "neverOpen"
     }
   ]
 }

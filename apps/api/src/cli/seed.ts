@@ -2,7 +2,7 @@
  * Development seed runner. Hashing lives here rather than in @apion/db, which
  * has no business knowing how passwords are stored.
  *
- *   pnpm nx run @apion/api:seed
+ *   bunx nx run @apion/api:seed
  */
 import { createDatabase, seed } from '@apion/db';
 import * as argon2 from 'argon2';

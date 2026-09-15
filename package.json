@@ -2,18 +2,29 @@
   "name": "@org/source",
   "version": "0.0.0",
   "license": "MIT",
+  "workspaces": [
+    "packages/*",
+    "libs/*",
+    "apps/*"
+  ],
+  "trustedDependencies": [
+    "@parcel/watcher",
+    "argon2",
+    "esbuild",
+    "unrs-resolver"
+  ],
   "scripts": {
     "lint": "nx run-many -t lint",
     "lint:fix": "nx run-many -t lint:fix",
     "format": "nx run-many -t format",
     "check": "nx run-many -t check",
-    "boundaries": "node tools/boundaries/check-boundaries.mjs",
+    "boundaries": "bun tools/boundaries/check-boundaries.mjs",
     "typecheck": "nx run-many -t typecheck",
     "test": "nx run-many -t test",
     "db:generate": "drizzle-kit generate --config=libs/db/drizzle.config.ts",
     "db:migrate": "drizzle-kit migrate --config=libs/db/drizzle.config.ts",
     "db:studio": "drizzle-kit studio --config=libs/db/drizzle.config.ts",
-    "db:seed": "nx run @apion/api:seed && node apps/api/dist-seed/seed.js",
+    "db:seed": "nx run @apion/api:seed && bun apps/api/dist-seed/seed.js",
     "dev:api": "nx run @apion/api:serve",
     "dev:web": "nx run @apion/web:dev"
   },

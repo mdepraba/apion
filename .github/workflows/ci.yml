@@ -38,36 +38,163 @@ jobs:
           # Nx compares against the base commit to decide what is affected.
           fetch-depth: 0
 
-      - uses: pnpm/action-setup@v4
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
 
+      # Bun installs and runs the API, but Nx, esbuild and Vitest still spawn
+      # node for their own work, so the runtime has to be on the box.
       - uses: actions/setup-node@v5
         with:
           node-version: 24
-          cache: pnpm
 
-      - run: pnpm install --frozen-lockfile
+      - uses: actions/cache@v4
+        with:
+          path: ~/.bun/install/cache
+          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
+          restore-keys: bun-${{ runner.os }}-
+
+      - run: bun install --frozen-lockfile
 
       # The route tree and TS project references are generated, so a stale
       # commit of either should fail here rather than surprise someone locally.
       - name: Check the workspace is in sync
-        run: pnpm nx sync:check
+        run: bunx nx sync:check
 
       - name: Check module boundaries
-        run: pnpm boundaries
+        run: bun run boundaries
 
       - name: Lint and format
-        run: pnpm nx run-many -t check
+        run: bunx nx run-many -t check
 
       - name: Typecheck
-        run: pnpm nx run-many -t typecheck
+        run: bunx nx run-many -t typecheck
 
       - name: Test
-        run: pnpm nx run-many -t test
+        run: bunx nx run-many -t test
 
       - name: Build
-        run: pnpm nx run-many -t build
+        run: bunx nx run-many -t build
 
       - name: Apply migrations against a real Postgres
-        run: pnpm db:migrate
+        run: bun run db:migrate
         env:
           DATABASE_URL: postgres://apion:apion@localhost:5432/apion
+
+  # PRD 08 lists "host builds exhaust memory" as a risk and answers it with a
+  # registry: the image is built here and the VPS only pulls it.
+  publish:
+    needs: verify
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.name.outputs.image }}
+    steps:
+      - uses: actions/checkout@v5
+
+      # ghcr rejects an uppercase path, which github.repository may contain.
+      - id: name
+        run: echo "image=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          # Pinned to the commit so a rollback names an exact build; `main`
+          # moves so a manual `docker compose pull` gets the current one.
+          tags: |
+            ${{ steps.name.outputs.image }}:${{ github.sha }}
+            ${{ steps.name.outputs.image }}:main
+          platforms: linux/amd64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    # Attach required reviewers or branch rules to this environment to gate the
+    # deploy without touching this file.
+    permissions:
+      contents: read
+      packages: read
+    environment: production
+    # Never let two deploys interleave on one host; a queued one waits.
+    concurrency:
+      group: deploy-production
+      cancel-in-progress: false
+    env:
+      IMAGE: ${{ needs.publish.outputs.image }}:${{ github.sha }}
+      APP_DIR: ${{ vars.VPS_APP_DIR || '/srv/apion' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Authorise the host
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "${{ secrets.VPS_SSH_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+          printf '%s\n' "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_deploy
+          chmod 600 ~/.ssh/id_deploy
+
+      # The host runs the compose file from the commit being deployed, so the
+      # two can never drift.
+      - name: Send the compose file
+        run: |
+          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "mkdir -p '$APP_DIR'"
+          scp -i ~/.ssh/id_deploy docker-compose.prod.yml \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$APP_DIR/docker-compose.prod.yml"
+
+      - name: Pull and restart
+        run: |
+          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -euo pipefail <<EOF
+          cd '$APP_DIR'
+
+          echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+
+          # Record the tag in .env so a later manual 'docker compose up -d', or
+          # a rollback, uses the same image this deploy did.
+          touch .env
+          grep -v '^APION_IMAGE=' .env > .env.next || true
+          echo "APION_IMAGE=$IMAGE" >> .env.next
+          mv .env.next .env
+
+          docker compose -f docker-compose.prod.yml pull
+          docker compose -f docker-compose.prod.yml up -d --remove-orphans
+          docker logout ghcr.io
+          EOF
+
+      - name: Wait for the API to report healthy
+        run: |
+          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -euo pipefail <<EOF
+          cd '$APP_DIR'
+          container=\$(docker compose -f docker-compose.prod.yml ps -q api)
+
+          for _ in \$(seq 1 40); do
+            status=\$(docker inspect --format '{{.State.Health.Status}}' "\$container")
+            [ "\$status" = healthy ] && exit 0
+            [ "\$status" = unhealthy ] && break
+            sleep 3
+          done
+
+          echo "API did not become healthy; last status: \${status:-unknown}"
+          docker compose -f docker-compose.prod.yml logs --tail 80 api
+          exit 1
+          EOF
+
+      # A 1 GB host fills up fast when every deploy leaves an image behind.
+      - name: Drop superseded images
+        if: success()
+        run: |
+          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "docker image prune -af --filter 'until=168h'"

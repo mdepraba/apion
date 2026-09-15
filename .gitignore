@@ -53,3 +53,4 @@ vite.config.*.timestamp*
 # Local secrets
 .env
 apps/api/dist-seed
+apps/api/dist-migrate

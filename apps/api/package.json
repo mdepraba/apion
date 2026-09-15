@@ -13,18 +13,13 @@
         "inputs": [
           "default",
           "^default",
-          "{workspaceRoot}/pnpm-workspace.yaml",
           "{workspaceRoot}/package.json",
           {
-            "runtime": "node -e \"try{console.log('pnpm major '+require('child_process').execSync('pnpm --version',{stdio:['ignore','pipe','ignore']}).toString().trim().split('.')[0])}catch{console.log('pnpm major unavailable')}\""
+            "runtime": "bun --version"
           }
         ],
         "outputs": [
-          "{workspaceRoot}/apps/api/dist/package.json",
-          "{workspaceRoot}/apps/api/dist/pnpm-lock.yaml",
-          "{workspaceRoot}/apps/api/dist/pnpm-workspace.yaml",
-          "{workspaceRoot}/apps/api/dist/patches",
-          "{workspaceRoot}/apps/api/dist/local_path_modules"
+          "{workspaceRoot}/apps/api/dist/package.json"
         ],
         "options": {
           "buildTarget": "build"
@@ -52,26 +47,32 @@
       },
       "serve": {
         "continuous": true,
-        "executor": "@nx/js:node",
+        "executor": "nx:run-commands",
         "defaultConfiguration": "development",
         "dependsOn": [
           "build"
         ],
         "options": {
-          "buildTarget": "@apion/api:build",
-          "runBuildTargetDependencies": false
+          "parallel": true,
+          "cwd": "{workspaceRoot}"
         },
         "configurations": {
           "development": {
-            "buildTarget": "@apion/api:build:development"
+            "commands": [
+              "nx run @apion/api:build:development --watch",
+              "bun --watch --smol apps/api/dist/main.js"
+            ]
           },
           "production": {
-            "buildTarget": "@apion/api:build:production"
+            "commands": [
+              "bun --smol apps/api/dist/main.js"
+            ]
           }
         }
       },
       "build": {
         "executor": "@nx/esbuild:esbuild",
+        "defaultConfiguration": "development",
         "outputs": [
           "{options.outputPath}"
         ],
@@ -113,6 +114,25 @@
           ],
           "outputPath": "apps/api/dist-seed",
           "main": "apps/api/src/cli/seed.ts",
+          "tsConfig": "apps/api/tsconfig.app.json",
+          "bundle": true,
+          "thirdParty": false,
+          "assets": [],
+          "esbuildConfig": "apps/api/esbuild.config.cjs"
+        }
+      },
+      "migrate": {
+        "executor": "@nx/esbuild:esbuild",
+        "outputs": [
+          "{options.outputPath}"
+        ],
+        "options": {
+          "platform": "node",
+          "format": [
+            "esm"
+          ],
+          "outputPath": "apps/api/dist-migrate",
+          "main": "apps/api/src/cli/migrate.ts",
           "tsConfig": "apps/api/tsconfig.app.json",
           "bundle": true,
           "thirdParty": false,
