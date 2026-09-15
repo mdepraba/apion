@@ -96,12 +96,15 @@ is fixed by PRD 05 FR-6.1, so `MockController` binds to the Fastify instance dir
 (PRD 03) govern how a *project's* API answers and have no bearing on the control plane's own
 envelope — don't conflate the two.
 
-**Deployment is pull-only.** `Dockerfile` builds the image in CI and
-`docker-compose.prod.yml` runs Postgres, a one-shot `migrate` container and the API on one
-VPS; the `publish`/`deploy` jobs in `.github/workflows/ci.yml` push to GHCR and the host only
-pulls and restarts, because PRD 08 lists host builds exhausting memory as a risk. Migrations go
-through `apps/api/src/cli/migrate.ts` (drizzle-orm's migrator, not drizzle-kit, which is a dev
-dependency) and the API starts only if they succeed.
+**Production runs under systemd, not Docker.** The VPS is an LXC container, where `runc`
+cannot write `net.ipv4.ip_unprivileged_port_start` and therefore starts no container at all —
+`docker-compose.yml` is development only. The `deploy` job in `.github/workflows/ci.yml` builds
+the bundles and the SPA, installs production dependencies from the same lockfile, rsyncs a
+release to `/srv/apion/releases/<sha>`, applies migrations, swaps the `current` symlink and
+restarts `apion.service`. PRD 08 lists host builds exhausting memory as a risk, so the host
+compiles nothing. The unit, the Postgres drop-in and the sudoers rule live in `deploy/`.
+Migrations go through `apps/api/src/cli/migrate.ts` (drizzle-orm's migrator, not drizzle-kit,
+which is a dev dependency) and a failure there leaves the previous release running.
 
 **The API serves the SPA.** PRD 07 puts both in one process. `@fastify/static` is registered
 with `wildcard: false` so it globs `WEB_DIST_PATH` at startup and each hashed asset gets its

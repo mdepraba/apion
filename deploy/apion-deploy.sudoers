@@ -1,0 +1,8 @@
+# Install with: sudo install -m 440 -o root -g root \
+#   deploy/apion-deploy.sudoers /etc/sudoers.d/apion-deploy
+# Then check it parses: sudo visudo -c
+#
+# Restarting the unit is the only privileged thing the deploy does. `systemctl
+# status` and `journalctl` need no sudo once the user is in systemd-journal.
+
+deploy ALL=(root) NOPASSWD: /usr/bin/systemctl restart apion.service

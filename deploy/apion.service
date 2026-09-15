@@ -1,0 +1,47 @@
+; Install to /etc/systemd/system/apion.service. See the deployment section of
+; README.md for the host setup this expects.
+;
+; `current` is a symlink into releases/<sha>, swapped atomically by the deploy
+; before this unit restarts, so a rollback is a symlink change and a restart.
+
+[Unit]
+Description=Apion API
+After=network-online.target postgresql.service
+Wants=network-online.target
+Requires=postgresql.service
+
+[Service]
+Type=simple
+User=deploy
+Group=deploy
+WorkingDirectory=/srv/apion/current
+EnvironmentFile=/srv/apion/.env
+Environment=NODE_ENV=production
+Environment=WEB_DIST_PATH=/srv/apion/current/web
+Environment=MIGRATIONS_FOLDER=/srv/apion/current/migrations
+ExecStart=/usr/local/bin/bun --smol main.js
+
+; The job registrar polls Postgres on boot and an unhandled rejection there
+; ends the process, so a database that is briefly away has to be survivable.
+Restart=always
+RestartSec=5s
+
+; PRD 07 budgets the host at 1 GB and gives Postgres about 200 MB of it.
+MemoryHigh=448M
+MemoryMax=512M
+
+; The service reads its release directory and talks to Postgres. Nothing else.
+NoNewPrivileges=true
+PrivateTmp=true
+PrivateDevices=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/srv/apion
+ProtectKernelTunables=true
+ProtectControlGroups=true
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

@@ -79,32 +79,63 @@ and takes the API down at startup, so that rule is off for `apps/api`.
 
 ## Deploying
 
-One VPS, one Docker image, no build on the host. PRD 08 lists host builds
-exhausting memory as a risk, so `.github/workflows/ci.yml` builds the image,
-pushes it to GHCR, and the VPS only pulls and restarts.
+One VPS, one systemd unit, no build on the host. PRD 08 lists host builds
+exhausting memory as a risk, so `.github/workflows/ci.yml` builds everything and
+the host only receives files and restarts.
 
-A push to `main` runs `verify`; if it passes, `publish` builds the image and
-tags it with the commit SHA and `main`; `deploy` copies
-`docker-compose.prod.yml` to the host, pulls that tag, runs migrations as a
-one-shot container, starts the API only if they succeed, and fails the job if
-`/health` does not report healthy within two minutes.
+There is no Docker in production. The target is an LXC container, where `runc`
+cannot write `net.ipv4.ip_unprivileged_port_start` and so no container starts at
+all. Running under systemd also gives back the 50-80 MB the Docker daemon costs
+on a 1 GB host. `docker-compose.yml` is still the development database.
 
-The host needs Docker with the Compose plugin, a directory (`/srv/apion` by
-default) and a `.env` in it. The keys are listed at the bottom of
-[.env.example](.env.example); `POSTGRES_PASSWORD` and a real `JWT_SECRET` are
-required. Nothing else on the host is managed by the pipeline.
+A push to `main` runs `verify`; if it passes, `deploy` builds the API bundle, the
+migration bundle and the SPA, installs production dependencies from the same
+lockfile, and rsyncs the result to `releases/<sha>` on the host. It then applies
+migrations, swaps the `current` symlink, restarts `apion.service`, and fails the
+job if `/health` does not answer within two minutes. Five releases are kept.
+
+Host setup, once:
+
+```sh
+# Bun, on PATH for the unit
+curl -fsSL https://bun.sh/install | bash
+install -m 755 ~/.bun/bin/bun /usr/local/bin/bun
+
+# Postgres 18 from PGDG, with the PRD 07 limits
+install -m 644 deploy/postgresql-apion.conf /etc/postgresql/18/main/conf.d/apion.conf
+systemctl restart postgresql
+
+# The unit, and the one privileged thing the deploy does
+install -m 644 deploy/apion.service /etc/systemd/system/apion.service
+install -m 440 deploy/apion-deploy.sudoers /etc/sudoers.d/apion-deploy
+usermod -aG systemd-journal deploy
+systemctl daemon-reload && systemctl enable apion.service
+```
+
+The host also needs `/srv/apion` owned by the deploy user and a `.env` in it,
+readable by that user. The keys are listed at the bottom of
+[.env.example](.env.example); `DATABASE_URL` and a real `JWT_SECRET` are
+required. The deploy never writes that file.
 
 Repository secrets: `VPS_HOST`, `VPS_USER`, `VPS_SSH_KEY` (a private key whose
 public half is in the deploy user's `authorized_keys`) and `VPS_SSH_KNOWN_HOSTS`
-(`ssh-keyscan your-host`). Optional variable: `VPS_APP_DIR`. The `production`
-environment exists so a required reviewer can gate the deploy without editing
-the workflow.
+(`ssh-keyscan your-host`). Optional variables: `VPS_APP_DIR`, `VPS_SSH_PORT`. The
+`production` environment exists so a required reviewer can gate the deploy
+without editing the workflow.
 
-The API is published on `127.0.0.1:3000`, not on a public interface. Terminate
-TLS with a reverse proxy on the host.
+The API listens on `127.0.0.1:3000`, not on a public interface. Terminate TLS
+with a reverse proxy on the host.
 
-To roll back, set `APION_IMAGE` in the host's `.env` to an earlier commit's tag
-and run `docker compose -f docker-compose.prod.yml up -d`.
+To roll back, point `current` at an earlier release and restart:
+
+```sh
+ln -sfn /srv/apion/releases/<sha> /srv/apion/current.next
+mv -T /srv/apion/current.next /srv/apion/current
+sudo systemctl restart apion.service
+```
+
+That does not reverse a migration. Rolling back across a schema change needs a
+down migration you write yourself.
 
 ## Design
 
