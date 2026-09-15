@@ -54,3 +54,7 @@ vite.config.*.timestamp*
 .env
 apps/api/dist-seed
 apps/api/dist-migrate
+
+
+*-deploy
+*-deploy.pub

@@ -81,63 +81,76 @@ jobs:
         env:
           DATABASE_URL: postgres://apion:apion@localhost:5432/apion
 
-  # PRD 08 lists "host builds exhaust memory" as a risk and answers it with a
-  # registry: the image is built here and the VPS only pulls it.
-  publish:
+  # PRD 08 lists "host builds exhaust memory" as a risk, so everything is built
+  # here and the VPS only receives files and restarts a unit. The host is an LXC
+  # container, where Docker cannot start a container at all, so the API runs
+  # under systemd rather than in an image.
+  deploy:
     needs: verify
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      packages: write
-    outputs:
-      image: ${{ steps.name.outputs.image }}
-    steps:
-      - uses: actions/checkout@v5
-
-      # ghcr rejects an uppercase path, which github.repository may contain.
-      - id: name
-        run: echo "image=ghcr.io/$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
-
-      - uses: docker/setup-buildx-action@v3
-
-      - uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          # Pinned to the commit so a rollback names an exact build; `main`
-          # moves so a manual `docker compose pull` gets the current one.
-          tags: |
-            ${{ steps.name.outputs.image }}:${{ github.sha }}
-            ${{ steps.name.outputs.image }}:main
-          platforms: linux/amd64
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
-
-  deploy:
-    needs: publish
     runs-on: ubuntu-latest
     # Attach required reviewers or branch rules to this environment to gate the
     # deploy without touching this file.
     permissions:
       contents: read
-      packages: read
     environment: production
     # Never let two deploys interleave on one host; a queued one waits.
     concurrency:
       group: deploy-production
       cancel-in-progress: false
     env:
-      IMAGE: ${{ needs.publish.outputs.image }}:${{ github.sha }}
       APP_DIR: ${{ vars.VPS_APP_DIR || '/srv/apion' }}
+      RELEASE: ${{ github.sha }}
+      HOST: ${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}
     steps:
       - uses: actions/checkout@v5
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      # Nx, esbuild and Vite spawn node even though the API runs on bun.
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+
+      - run: bun install --frozen-lockfile
+
+      - name: Build the release
+        run: |
+          bunx nx run @apion/api:build:production
+          bunx nx run @apion/api:migrate
+          bunx nx run @apion/web:build
+
+      - name: Stage the release
+        run: |
+          mkdir -p release
+          cp apps/api/dist/main.js release/main.js
+          cp apps/api/dist-migrate/migrate.js release/migrate.js
+          cp -r apps/web/dist release/web
+          cp -r libs/db/migrations release/migrations
+          # The bundle is ESM; bun needs the manifest to say so.
+          echo '{"type":"module"}' > release/package.json
+
+          # esbuild leaves third-party imports external, so the host needs them.
+          # Workspace libraries are bundled into main.js and never resolved
+          # there, but bun still wants every manifest to resolve the lockfile.
+          mkdir -p proddeps
+          cp package.json bun.lock proddeps/
+          rsync -R apps/*/package.json libs/*/package.json proddeps/
+
+          # --linker=hoisted is load-bearing. bun's default isolated layout
+          # fills node_modules with ABSOLUTE symlinks into its .bun store, and
+          # every one of them dangles the moment the tree is moved or rsynced
+          # to another path. Hoisted writes real directories instead.
+          (cd proddeps && bun install --frozen-lockfile --production --linker=hoisted)
+
+          # The only absolute symlinks hoisted leaves. Nothing resolves them at
+          # runtime because these are bundled into main.js.
+          rm -rf proddeps/node_modules/@apion
+          mv proddeps/node_modules release/node_modules
+
+          du -sh release
 
       - name: Authorise the host
         run: |
@@ -155,55 +168,57 @@ jobs:
           EOF
           chmod 600 ~/.ssh/config
 
-      # The host runs the compose file from the commit being deployed, so the
-      # two can never drift.
-      - name: Send the compose file
+      # Into a release directory of its own, so the running one is untouched
+      # until the symlink swap below.
+      - name: Ship the release
         run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "mkdir -p '$APP_DIR'"
-          scp -i ~/.ssh/id_deploy docker-compose.prod.yml \
-            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:$APP_DIR/docker-compose.prod.yml"
+          ssh "$HOST" "mkdir -p '$APP_DIR/releases/$RELEASE'"
+          rsync -az --delete release/ "$HOST:$APP_DIR/releases/$RELEASE/"
 
-      - name: Pull and restart
+      - name: Migrate, then switch and restart
         run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -euo pipefail <<EOF
-          cd '$APP_DIR'
+          ssh "$HOST" bash -euo pipefail <<EOF
+          set -a; . '$APP_DIR/.env'; set +a
+          cd '$APP_DIR/releases/$RELEASE'
 
-          echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin
+          # A failed migration leaves the old release running and fails the
+          # deploy, rather than restarting the API against a schema it cannot
+          # use.
+          MIGRATIONS_FOLDER=./migrations /usr/local/bin/bun --smol migrate.js
 
-          # Record the tag in .env so a later manual 'docker compose up -d', or
-          # a rollback, uses the same image this deploy did.
-          touch .env
-          grep -v '^APION_IMAGE=' .env > .env.next || true
-          echo "APION_IMAGE=$IMAGE" >> .env.next
-          mv .env.next .env
+          # ln then mv, because a plain 'ln -sfn' over an existing symlink is
+          # not atomic and can leave 'current' missing between the two calls.
+          ln -sfn '$APP_DIR/releases/$RELEASE' '$APP_DIR/current.next'
+          mv -T '$APP_DIR/current.next' '$APP_DIR/current'
 
-          docker compose -f docker-compose.prod.yml pull
-          docker compose -f docker-compose.prod.yml up -d --remove-orphans
-          docker logout ghcr.io
+          sudo systemctl restart apion.service
           EOF
 
       - name: Wait for the API to report healthy
         run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" bash -euo pipefail <<EOF
-          cd '$APP_DIR'
-          container=\$(docker compose -f docker-compose.prod.yml ps -q api)
+          ssh "$HOST" bash -euo pipefail <<EOF
+          set -a; . '$APP_DIR/.env'; set +a
 
           for _ in \$(seq 1 40); do
-            status=\$(docker inspect --format '{{.State.Health.Status}}' "\$container")
-            [ "\$status" = healthy ] && exit 0
-            [ "\$status" = unhealthy ] && break
+            if curl -fsS "http://127.0.0.1:\${PORT:-3000}/health" | grep -q '"status":"ok"'; then
+              echo 'API is healthy.'
+              exit 0
+            fi
             sleep 3
           done
 
-          echo "API did not become healthy; last status: \${status:-unknown}"
-          docker compose -f docker-compose.prod.yml logs --tail 80 api
+          echo 'API did not report healthy.'
+          systemctl status apion.service --no-pager || true
+          journalctl -u apion.service -n 80 --no-pager || true
           exit 1
           EOF
 
-      # A 1 GB host fills up fast when every deploy leaves an image behind.
-      - name: Drop superseded images
+      # A 1 GB host fills up fast when every deploy leaves a node_modules behind.
+      - name: Drop superseded releases
         if: success()
         run: |
-          ssh -i ~/.ssh/id_deploy "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
-            "docker image prune -af --filter 'until=168h'"
+          ssh "$HOST" bash -euo pipefail <<EOF
+          cd '$APP_DIR/releases'
+          ls -1dt */ | tail -n +6 | xargs -r rm -rf
+          echo "Kept: \$(ls -1dt */ | tr '\n' ' ')"
+          EOF
