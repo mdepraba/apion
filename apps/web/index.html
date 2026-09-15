@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <title>Apion</title>
+    <base href="/" />
+
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta
+      name="description"
+      content="Agree the API contract before anyone writes the handler."
+    />
+    <link rel="icon" type="image/x-icon" href="/favicon.ico" />
+    <!--
+      The theme is resolved before the first paint so a light-mode reader never
+      sees the dark default flash. main.tsx re-applies the same value.
+    -->
+    <script>
+      let resolved = 'dark';
+      try {
+        const stored = localStorage.getItem('apion.theme');
+        resolved =
+          stored === 'light' || stored === 'dark'
+            ? stored
+            : window.matchMedia('(prefers-color-scheme: light)').matches
+              ? 'light'
+              : 'dark';
+      } catch {
+        // Storage can be blocked. The dark default above still applies.
+      }
+      document.documentElement.dataset.theme = resolved;
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

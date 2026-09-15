@@ -48,3 +48,9 @@ Thumbs.db
 .nx/polygraph
 .nx/self-healing
 .nx/migrate-runs
+vitest.config.*.timestamp*
+vite.config.*.timestamp*
+# Local secrets
+.env
+apps/api/dist-seed
+apps/api/dist-migrate

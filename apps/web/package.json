@@ -1,0 +1,31 @@
+{
+  "name": "@apion/web",
+  "version": "0.0.1",
+  "private": true,
+  "nx": {
+    "tags": [
+      "type:app",
+      "scope:web"
+    ],
+    "targets": {
+      "typecheck": {
+        "dependsOn": [
+          "^typecheck"
+        ]
+      }
+    }
+  },
+  "dependencies": {
+    "@apion/contracts": "workspace:*",
+    "@apion/domain": "workspace:*",
+    "@tanstack/react-query": "^5.102.8",
+    "@tanstack/react-router": "^1.170.35",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0",
+    "zod": "^4.6.2",
+    "zustand": "^5.0.15"
+  },
+  "devDependencies": {
+    "@tanstack/router-plugin": "^1.168.37"
+  }
+}
